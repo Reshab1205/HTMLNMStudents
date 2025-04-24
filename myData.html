@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>JS Code Visualizer</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 20px;
+      background-color: #f5f7fa;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      font-family: monospace;
+      font-size: 16px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    #highlighted-code {
+      white-space: pre-wrap;
+      font-family: monospace;
+      background-color: #f0f0f0;
+      border: 1px solid #ccc;
+      padding: 10px;
+      line-height: 1.6;
+    }
+    .current-line {
+      background-color: #ffeeba;
+    }
+    #output, #watcher {
+      background-color: #1e1e1e;
+      color: #0f0;
+      font-family: monospace;
+      padding: 10px;
+      margin-top: 10px;
+      height: 100px;
+      overflow-y: auto;
+    }
+    #watcher {
+      color: #00f5ff;
+    }
+    button {
+      margin: 5px 10px 5px 0;
+      padding: 10px 15px;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+<h2>💡 JavaScript Code Visualizer</h2>
+
+<textarea id="editor">
+// Example code
+var a = 10;
+var b = 20;
+var sum = a + b;
+console.log("Sum is:", sum);
+  </textarea>
+
+<div id="highlighted-code"></div>
+
+<button onclick="startExecution()">Start</button>
+<button onclick="stepExecution()">Step</button>
+<button onclick="toggleAutoRun()">▶️ Auto Play / ⏸ Pause</button>
+
+<h3>📤 Output</h3>
+<div id="output"></div>
+
+<h3>🔍 Variable Watcher</h3>
+<div id="watcher"></div>
+
+<script src="https://cdn.jsdelivr.net/gh/NeilFraser/JS-Interpreter@master/acorn.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/NeilFraser/JS-Interpreter@master/interpreter.js"></script>
+
+<script>
+  let interpreter = null;
+  let code = '';
+  let autoRun = false;
+  let autoStepTimer = null;
+
+  const outputDiv = document.getElementById('output');
+  const watcherDiv = document.getElementById('watcher');
+  const codeEditor = document.getElementById('editor');
+  const highlightedCode = document.getElementById('highlighted-code');
+
+  function initFunc(interpreter, globalObject) {
+    const wrapper = function (...args) {
+      outputDiv.innerHTML += args.join(' ') + "<br>";
+    };
+    interpreter.setProperty(globalObject, 'console', interpreter.nativeToPseudo({
+      log: wrapper
+    }));
+  }
+
+  function highlightLine(lineNumber) {
+    const lines = code.split('\n');
+    highlightedCode.innerHTML = lines.map((line, index) => {
+      return `<div class="${index === lineNumber - 1 ? 'current-line' : ''}">${line}</div>`;
+    }).join('');
+  }
+
+  function showVariables() {
+    const scope = interpreter.getScope();
+    const varNames = interpreter.getScope().properties;
+    const vars = Object.keys(varNames)
+      .map(name => `${name} = ${JSON.stringify(interpreter.pseudoToNative(varNames[name]))}`)
+      .join('<br>');
+    watcherDiv.innerHTML = vars;
+  }
+
+  function startExecution() {
+    code = codeEditor.value;
+    outputDiv.innerHTML = '';
+    watcherDiv.innerHTML = '';
+    interpreter = new Interpreter(code, initFunc);
+    highlightLine(-1);
+    stopAutoRun(); 
+  }
+
+  function stepExecution() {
+    if (interpreter && interpreter.step()) {
+      const node = interpreter.stateStack[0]?.node;
+      if (node?.loc?.start?.line) highlightLine(node.loc.start.line);
+      showVariables();
+    } else {
+      highlightLine(-1);
+      stopAutoRun();
+    }
+  }
+
+  function toggleAutoRun() {
+    autoRun = !autoRun;
+    if (autoRun) {
+      autoStepTimer = setInterval(stepExecution, 1000);
+    } else {
+      stopAutoRun();
+    }
+  }
+
+  function stopAutoRun() {
+    autoRun = false;
+    if (autoStepTimer) clearInterval(autoStepTimer);
+  }
+</script>
+
+</body>
+</html>
