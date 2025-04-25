@@ -1,3 +1,9 @@
-let a = 5
-a=7
-console.log(a)
+
+
+function add () {
+    const arr = [];
+    console.log(arr)
+    return 
+}
+
+add()
